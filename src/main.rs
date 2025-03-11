@@ -67,16 +67,22 @@ Examples:
     {} genkey alice               # Generate keys as alice.pub and alice.key
     {} import-key bob.pub         # Import Bob's public key
     {} -e -r bob message.txt      # Encrypt for Bob using preferred dialect
+    {} -e -r bob -i message.txt   # Encrypt for Bob using --input flag
     {} -e -r bob --dialect dog    # Encrypt for Bob using dog dialect
     {} -d -k alice message.purr   # Decrypt using Alice's key
+    {} -d -k alice -i message.purr # Decrypt using --input flag
     {} set-dialect dog            # Switch to dog mode
     {} -v -e -r bob msg.txt       # Encrypt with verbose output",
-        program, program, program, program, program, program, program, program, program
+        program, program, program, program, program, program, program, program, program, program, program
     );
 }
 
 fn parse_args() -> Result<Command, String> {
     let args: Vec<String> = env::args().collect();
+    parse_args_from_vec(args)
+}
+
+fn parse_args_from_vec(args: Vec<String>) -> Result<Command, String> {
     if args.len() < 2 {
         return Ok(Command::Help);
     }
@@ -142,6 +148,10 @@ fn parse_args() -> Result<Command, String> {
                         );
                         i += 2;
                     }
+                    "-i" | "--input" => {
+                        input = Some(filtered_args.get(i + 1).ok_or("Missing input file")?.clone());
+                        i += 2;
+                    }
                     "--dialect" => {
                         dialect = Some(filtered_args.get(i + 1).ok_or("Missing dialect")?.clone());
                         i += 2;
@@ -182,6 +192,10 @@ fn parse_args() -> Result<Command, String> {
                                 .ok_or("Missing output file")?
                                 .clone(),
                         );
+                        i += 2;
+                    }
+                    "-i" | "--input" => {
+                        input = Some(filtered_args.get(i + 1).ok_or("Missing input file")?.clone());
                         i += 2;
                     }
                     _ => {
@@ -355,5 +369,214 @@ fn main() {
     if let Err(e) = run() {
         eprintln!("Error: {}", e);
         process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // Helper function to convert string args to Vec<String>
+    fn make_args(args: &[&str]) -> Vec<String> {
+        let mut result = vec!["purr".to_string()]; // Program name
+        result.extend(args.iter().map(|s| s.to_string()));
+        result
+    }
+
+    #[test]
+    fn test_help_command() {
+        // Empty args or just the binary name
+        let args = make_args(&[]);
+        let result = parse_args_from_vec(args);
+        assert!(matches!(result, Ok(Command::Help)));
+    }
+
+    #[test]
+    fn test_genkey_command() {
+        // Test genkey with no name
+        let args = make_args(&["genkey"]);
+        let result = parse_args_from_vec(args);
+        assert!(matches!(result, Ok(Command::GenerateKey { name: None })));
+
+        // Test genkey with name
+        let args = make_args(&["genkey", "alice"]);
+        let result = parse_args_from_vec(args);
+        assert!(matches!(result, Ok(Command::GenerateKey { name: Some(name) }) if name == "alice"));
+    }
+
+    #[test]
+    fn test_encrypt_command_positional_args() {
+        // Test encrypt with positional input file
+        let args = make_args(&["encrypt", "-r", "bob", "message.txt"]);
+        let result = parse_args_from_vec(args);
+        assert!(matches!(result, Ok(Command::Encrypt { 
+            recipient_key, 
+            input_file, 
+            output_file: None,
+            dialect: None
+        }) if recipient_key == "bob" && input_file == "message.txt"));
+    }
+
+    #[test]
+    fn test_encrypt_command_with_input_flag() {
+        // Test encrypt with --input flag
+        let args = make_args(&["encrypt", "-r", "bob", "--input", "message.txt"]);
+        let result = parse_args_from_vec(args);
+        assert!(matches!(result, Ok(Command::Encrypt { 
+            recipient_key, 
+            input_file, 
+            output_file: None,
+            dialect: None
+        }) if recipient_key == "bob" && input_file == "message.txt"));
+
+        // Test encrypt with -i flag
+        let args = make_args(&["encrypt", "-r", "bob", "-i", "message.txt"]);
+        let result = parse_args_from_vec(args);
+        assert!(matches!(result, Ok(Command::Encrypt { 
+            recipient_key, 
+            input_file, 
+            output_file: None,
+            dialect: None
+        }) if recipient_key == "bob" && input_file == "message.txt"));
+    }
+
+    #[test]
+    fn test_encrypt_command_with_all_options() {
+        // Test encrypt with all options
+        let args = make_args(&[
+            "encrypt", 
+            "-r", "bob", 
+            "-i", "message.txt", 
+            "-o", "output.purr", 
+            "--dialect", "cat"
+        ]);
+        let result = parse_args_from_vec(args);
+        assert!(matches!(result, Ok(Command::Encrypt { 
+            recipient_key, 
+            input_file, 
+            output_file: Some(output),
+            dialect: Some(d)
+        }) if recipient_key == "bob" && input_file == "message.txt" && output == "output.purr" && d == "cat"));
+    }
+
+    #[test]
+    fn test_decrypt_command_positional_args() {
+        // Test decrypt with positional input file
+        let args = make_args(&["decrypt", "-k", "alice", "message.purr"]);
+        let result = parse_args_from_vec(args);
+        assert!(matches!(result, Ok(Command::Decrypt { 
+            private_key, 
+            input_file, 
+            output_file: None
+        }) if private_key == "alice" && input_file == "message.purr"));
+    }
+
+    #[test]
+    fn test_decrypt_command_with_input_flag() {
+        // Test decrypt with --input flag
+        let args = make_args(&["decrypt", "-k", "alice", "--input", "message.purr"]);
+        let result = parse_args_from_vec(args);
+        assert!(matches!(result, Ok(Command::Decrypt { 
+            private_key, 
+            input_file, 
+            output_file: None
+        }) if private_key == "alice" && input_file == "message.purr"));
+
+        // Test decrypt with -i flag
+        let args = make_args(&["decrypt", "-k", "alice", "-i", "message.purr"]);
+        let result = parse_args_from_vec(args);
+        assert!(matches!(result, Ok(Command::Decrypt { 
+            private_key, 
+            input_file, 
+            output_file: None
+        }) if private_key == "alice" && input_file == "message.purr"));
+    }
+
+    #[test]
+    fn test_decrypt_command_with_all_options() {
+        // Test decrypt with all options
+        let args = make_args(&[
+            "decrypt", 
+            "-k", "alice", 
+            "-i", "message.purr", 
+            "-o", "output.txt"
+        ]);
+        let result = parse_args_from_vec(args);
+        assert!(matches!(result, Ok(Command::Decrypt { 
+            private_key, 
+            input_file, 
+            output_file: Some(output)
+        }) if private_key == "alice" && input_file == "message.purr" && output == "output.txt"));
+    }
+
+    #[test]
+    fn test_import_key_command() {
+        // Test import_key
+        let args = make_args(&["import-key", "bob.pub"]);
+        let result = parse_args_from_vec(args);
+        assert!(matches!(result, Ok(Command::ImportKey { 
+            key_path, 
+            is_public: false
+        }) if key_path == "bob.pub"));
+
+        // Test import_key with --public flag
+        let args = make_args(&["import-key", "--public", "bob.pub"]);
+        let result = parse_args_from_vec(args);
+        assert!(matches!(result, Ok(Command::ImportKey { 
+            key_path, 
+            is_public: true
+        }) if key_path == "bob.pub"));
+    }
+
+    #[test]
+    fn test_set_dialect_command() {
+        // Test set_dialect
+        let args = make_args(&["set-dialect", "cat"]);
+        let result = parse_args_from_vec(args);
+        assert!(matches!(result, Ok(Command::SetDialect { 
+            dialect
+        }) if dialect == "cat"));
+
+        let args = make_args(&["set-dialect", "dog"]);
+        let result = parse_args_from_vec(args);
+        assert!(matches!(result, Ok(Command::SetDialect { 
+            dialect
+        }) if dialect == "dog"));
+    }
+
+    #[test]
+    fn test_list_keys_command() {
+        // Test list_keys
+        let args = make_args(&["list-keys"]);
+        let result = parse_args_from_vec(args);
+        assert!(matches!(result, Ok(Command::ListKeys)));
+
+        // Test with shorthand -k
+        let args = make_args(&["-k"]);
+        let result = parse_args_from_vec(args);
+        assert!(matches!(result, Ok(Command::ListKeys)));
+    }
+
+    #[test]
+    fn test_verbose_flag() {
+        // Test verbose flag is filtered correctly
+        let args = make_args(&["-v", "encrypt", "-r", "bob", "message.txt"]);
+        let result = parse_args_from_vec(args);
+        assert!(matches!(result, Ok(Command::Encrypt { 
+            recipient_key, 
+            input_file, 
+            output_file: None,
+            dialect: None
+        }) if recipient_key == "bob" && input_file == "message.txt"));
+
+        // Test verbose flag in different position
+        let args = make_args(&["encrypt", "-r", "bob", "message.txt", "-v"]);
+        let result = parse_args_from_vec(args);
+        assert!(matches!(result, Ok(Command::Encrypt { 
+            recipient_key, 
+            input_file, 
+            output_file: None,
+            dialect: None
+        }) if recipient_key == "bob" && input_file == "message.txt"));
     }
 }
