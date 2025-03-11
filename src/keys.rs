@@ -9,7 +9,7 @@ use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use k256::{
     ecdh::{diffie_hellman, EphemeralSecret}, sha2, PublicKey, SecretKey
 };
-use rand_core::OsRng;
+use k256::elliptic_curve::rand_core::OsRng;
 use std::path::Path;
 use std::{fs, os::unix::fs::PermissionsExt};
 use thiserror::Error;
