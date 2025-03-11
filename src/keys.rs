@@ -7,10 +7,9 @@ use aes_gcm::{
 };
 use base64::{engine::general_purpose::STANDARD as BASE64, Engine as _};
 use k256::{
-    ecdh::{diffie_hellman, EphemeralSecret},
-    PublicKey, SecretKey,
+    ecdh::{diffie_hellman, EphemeralSecret}, sha2, PublicKey, SecretKey
 };
-use rand_core::OsRng;
+use k256::elliptic_curve::rand_core::OsRng;
 use std::path::Path;
 use std::{fs, os::unix::fs::PermissionsExt};
 use thiserror::Error;
@@ -111,13 +110,26 @@ pub fn encrypt_data(data: &[u8], recipient_public_key: &PublicKey) -> Result<Vec
 
     // Perform ECDH to get shared secret
     let shared_secret = ephemeral_secret.diffie_hellman(recipient_public_key);
+    
+    // Properly derive key material using the built-in KDF
+    let shared_secret = shared_secret.extract::<sha2::Sha256>(Some(b"purrcrypt-salt"));
+    
+    // Derive encryption key
+    let mut encryption_key = [0u8; 32];
+    shared_secret.expand(b"encryption key", &mut encryption_key)
+        .map_err(|_| KeyError::EncryptionError("Failed to derive encryption key".to_string()))?;
+    
+    // Derive nonce (or use constant nonce as it's a single-use key)
+    let mut nonce_bytes = [0u8; 12];
+    shared_secret.expand(b"nonce", &mut nonce_bytes)
+        .map_err(|_| KeyError::EncryptionError("Failed to derive nonce".to_string()))?;
 
-    // Use shared secret to derive AES key
-    let aes_key = Key::<Aes256Gcm>::from_slice(shared_secret.raw_secret_bytes());
+    // Use derived key for AES
+    let aes_key = Key::<Aes256Gcm>::from_slice(&encryption_key);
     let cipher = Aes256Gcm::new(aes_key);
 
-    // Generate random nonce
-    let nonce = Nonce::from_slice(&shared_secret.raw_secret_bytes()[..12]);
+    // Use derived nonce
+    let nonce = Nonce::from_slice(&nonce_bytes);
 
     // Encrypt the data
     let encrypted_data = cipher
@@ -158,16 +170,131 @@ pub fn decrypt_data(encrypted_data: &[u8], secret_key: &SecretKey) -> Result<Vec
     // Perform ECDH using our private key and the ephemeral public key
     let shared_secret = diffie_hellman(secret_key.to_nonzero_scalar(), point);
 
-    // Derive AES key from shared secret
-    let secret_bytes = shared_secret.raw_secret_bytes();
-    let aes_key = Key::<Aes256Gcm>::from_slice(secret_bytes.as_slice());
+    // Properly derive key material using the built-in KDF
+    let shared_secret = shared_secret.extract::<sha2::Sha256>(Some(b"purrcrypt-salt"));
+    
+    // Derive the same encryption key
+    let mut encryption_key = [0u8; 32];
+    shared_secret.expand(b"encryption key", &mut encryption_key)
+        .map_err(|_| KeyError::DecryptionError("Failed to derive encryption key".to_string()))?;
+    
+    // Derive the same nonce
+    let mut nonce_bytes = [0u8; 12];
+    shared_secret.expand(b"nonce", &mut nonce_bytes)
+        .map_err(|_| KeyError::DecryptionError("Failed to derive nonce".to_string()))?;
+
+    // Derive AES key from the properly derived key material
+    let aes_key = Key::<Aes256Gcm>::from_slice(&encryption_key);
     let cipher = Aes256Gcm::new(aes_key);
 
-    // Use same nonce derivation as encryption
-    let nonce = Nonce::from_slice(&secret_bytes.as_slice()[..12]);
+    // Use the derived nonce
+    let nonce = Nonce::from_slice(&nonce_bytes);
 
     // Decrypt the data
     cipher
         .decrypt(nonce, encrypted)
         .map_err(|e| KeyError::DecryptionError(format!("AES-GCM decryption failed: {}", e)))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    
+    #[test]
+    fn test_encrypt_decrypt_roundtrip() {
+        // Generate a test keypair
+        let keypair = KeyPair::new();
+        
+        // Test data
+        let data = b"Hello FBI, i'm a cat";
+        
+        // Encrypt data using public key
+        let encrypted = encrypt_data(data, &keypair.public_key).expect("Encryption should succeed");
+        
+        // Decrypt data using secret key
+        let decrypted = decrypt_data(&encrypted, &keypair.secret_key).expect("Decryption should succeed");
+        
+        // Verify data is the same after round trip
+        assert_eq!(data.to_vec(), decrypted);
+    }
+    
+    #[test]
+    fn test_encrypt_decrypt_empty_data() {
+        // Generate a test keypair
+        let keypair = KeyPair::new();
+        
+        // Test with empty data
+        let empty_data = b"";
+        
+        // Encrypt empty data
+        let encrypted = encrypt_data(empty_data, &keypair.public_key).expect("Encryption of empty data should succeed");
+        
+        // Decrypt empty data
+        let decrypted = decrypt_data(&encrypted, &keypair.secret_key).expect("Decryption should succeed");
+        
+        // Verify
+        assert_eq!(empty_data.to_vec(), decrypted);
+    }
+    
+    #[test]
+    fn test_encrypt_decrypt_large_data() {
+        // Generate a test keypair
+        let keypair = KeyPair::new();
+        
+        // Generate a larger test data (1KB)
+        let large_data = vec![0xA5; 1024];
+        
+        // Encrypt data using public key
+        let encrypted = encrypt_data(&large_data, &keypair.public_key).expect("Encryption should succeed");
+        
+        // Decrypt data using secret key
+        let decrypted = decrypt_data(&encrypted, &keypair.secret_key).expect("Decryption should succeed");
+        
+        // Verify data is the same after round trip
+        assert_eq!(large_data, decrypted);
+    }
+    
+    #[test]
+    fn test_decrypt_invalid_data() {
+        // Generate a test keypair
+        let keypair = KeyPair::new();
+        
+        // Try to decrypt invalid data (too short)
+        let result = decrypt_data(b"too short", &keypair.secret_key);
+        assert!(result.is_err(), "Decrypting invalid data should fail");
+        
+        // Test with corrupted ciphertext
+        let data = b"Test message";
+        let mut encrypted = encrypt_data(data, &keypair.public_key).expect("Encryption should succeed");
+        
+        // Corrupt the encrypted data (modify a byte in the ciphertext portion, after the public key)
+        if encrypted.len() > 40 {
+            encrypted[40] ^= 0xFF;
+            let result = decrypt_data(&encrypted, &keypair.secret_key);
+            assert!(result.is_err(), "Decrypting corrupted data should fail");
+        }
+    }
+    
+    #[test]
+    fn test_different_keypairs() {
+        // Generate two different keypairs
+        let keypair1 = KeyPair::new();
+        let keypair2 = KeyPair::new();
+        
+        // Test data
+        let data = b"Cross-keypair test";
+        
+        // Encrypt with keypair1's public key
+        let encrypted = encrypt_data(data, &keypair1.public_key).expect("Encryption should succeed");
+        
+        // Try to decrypt with keypair2's secret key (should fail)
+        let result = decrypt_data(&encrypted, &keypair2.secret_key);
+        
+        // This might occasionally succeed due to random chance, but should almost always fail
+        // with an error related to authentication or decryption
+        if let Ok(decrypted) = result {
+            // In the extremely unlikely event it doesn't fail, at least the output should be different
+            assert_ne!(data.to_vec(), decrypted, "Decrypted data should not match original");
+        }
+    }
 }
