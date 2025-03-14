@@ -11,8 +11,11 @@ use k256::{
 };
 use k256::elliptic_curve::rand_core::OsRng;
 use std::path::Path;
-use std::{fs, os::unix::fs::PermissionsExt};
+use std::fs;
 use thiserror::Error;
+
+#[cfg(unix)]
+use fs::os::unix::fs::PermissionsExt;
 
 #[derive(Error, Debug)]
 pub enum KeyError {
@@ -52,6 +55,13 @@ impl KeyPair {
         #[cfg(unix)]
         fs::set_permissions(pub_path, fs::Permissions::from_mode(0o644))?;
 
+        #[cfg(windows)]
+        {
+            let mut perms = fs::metadata(pub_path)?.permissions();
+            perms.set_readonly(false);
+            fs::set_permissions(pub_path, perms)?;
+        }
+
         // Save private key
         let secret_bytes = self.secret_key.to_bytes();
         let encoded_secret = BASE64.encode(&secret_bytes);
@@ -59,6 +69,13 @@ impl KeyPair {
 
         #[cfg(unix)]
         fs::set_permissions(secret_path, fs::Permissions::from_mode(0o600))?;
+
+        #[cfg(windows)]
+        {
+            let mut perms = fs::metadata(secret_path)?.permissions();
+            perms.set_readonly(true);
+            fs::set_permissions(secret_path, perms)?;
+        }
 
         Ok(())
     }
