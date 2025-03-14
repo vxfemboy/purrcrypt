@@ -2,10 +2,12 @@
 use crate::debug;
 use std::{
     fs, io,
-    os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
 };
 use thiserror::Error;
+
+#[cfg(unix)]
+use std::os::unix::fs::PermissionsExt;
 
 #[derive(Error, Debug)]
 pub enum KeystoreError {
@@ -93,8 +95,18 @@ impl Keystore {
         fs::copy(key_path, &target_path)?;
 
         if !is_public {
-            let perms = fs::Permissions::from_mode(0o600);
-            fs::set_permissions(&target_path, perms)?;
+            #[cfg(unix)]
+            {
+                let perms = fs::Permissions::from_mode(0o600);
+                fs::set_permissions(&target_path, perms)?;
+            }
+
+            #[cfg(windows)]
+            {
+                let mut perms = fs::metadata(&target_path)?.permissions();
+                perms.set_readonly(false);
+                fs::set_permissions(&target_path, perms)?;
+            }
         }
 
         Ok(target_path)
@@ -142,15 +154,31 @@ impl Keystore {
         for entry in fs::read_dir(self.keys_dir.join("private"))? {
             let entry = entry?;
             let metadata = entry.metadata()?;
-            let mode = metadata.permissions().mode();
 
-            if mode & 0o077 != 0 {
-                return Err(KeystoreError::InvalidPermissions(format!(
-                    "Private key {} has unsafe permissions: {:o}",
-                    entry.path().display(),
-                    mode
-                )));
+            #[cfg(unix)]
+            {
+                let mode = metadata.permissions().mode();
+
+                if mode & 0o077 != 0 {
+                    return Err(KeystoreError::InvalidPermissions(format!(
+                        "Private key {} has unsafe permissions: {:o}",
+                        entry.path().display(),
+                        mode
+                    )));
+                }
             }
+
+            #[cfg(windows)]
+            {
+                let permissions = metadata.permissions();
+
+                if !permissions.readonly() {
+                    return Err(KeystoreError::InvalidPermissions(format!(
+                        "Private key {} is not read-only on Windows",
+                        entry.path().display()
+                    )));
+                }
+            }        
         }
         Ok(())
     }
