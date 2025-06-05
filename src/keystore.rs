@@ -154,4 +154,19 @@ impl Keystore {
         }
         Ok(())
     }
+    pub fn delete_key(&self, name: &str, is_public: bool) -> Result<(), KeystoreError> {
+        let (pub_path, priv_path) = self.get_key_paths(name);
+        let target = if is_public { pub_path } else { priv_path };
+
+        if target.exists() {
+            fs::remove_file(&target)?;
+            Ok(())
+        } else {
+            Err(KeystoreError::KeyNotFound(format!(
+                "Cannot delete: key not found at {}",
+                target.display()
+            )))
+        }
+    }
+
 }
