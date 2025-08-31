@@ -26,6 +26,11 @@ Under the fluffy exterior, PurrCrypt uses the same elliptic curve cryptography (
 
 ### Installation (Getting Your Paws On It)
 
+> [!TIP]
+> If you use Arch Linux, it's available on the AUR: [purrcrypt](https://aur.archlinux.org/packages/purrcrypt), or [purrcrypt-git](https://aur.archlinux.org/packages/purrcrypt-git). Use your favorite AUR helper or simply `makepkg -si`.
+
+Or, follow these steps:
+
 ```bash
 # Clone this ball of yarn
 git clone https://github.com/vxfemboy/purrcrypt.git
