@@ -17,6 +17,8 @@ use std::{
 };
 use thiserror::Error;
 
+
+
 #[derive(Error, Debug)]
 pub enum CryptoError {
     #[error("IO error: {0}")]
@@ -124,3 +126,8 @@ pub fn generate_keypair(pub_path: &Path, secret_path: &Path) -> Result<(), KeyEr
     let keypair = KeyPair::new();
     keypair.save_keys(pub_path, secret_path)
 }
+
+
+pub fn load_keypair(pub_path: &Path, secret_path: &Path) -> Result<KeyPair, KeyError> {
+    KeyPair::load_keypair(pub_path, secret_path)
+}   
