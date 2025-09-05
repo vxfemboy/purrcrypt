@@ -15,7 +15,7 @@ use std::fs;
 use thiserror::Error;
 
 #[cfg(unix)]
-use fs::os::unix::fs::PermissionsExt;
+use std::os::unix::fs::PermissionsExt;
 
 #[derive(Error, Debug)]
 pub enum KeyError {
