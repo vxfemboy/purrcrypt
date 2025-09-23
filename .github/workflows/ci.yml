@@ -67,8 +67,6 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [ubuntu-latest, windows-latest, macos-latest]
-        rust: [stable, beta, nightly]
         include:
           - os: ubuntu-latest
             rust: stable
@@ -76,13 +74,37 @@ jobs:
           - os: ubuntu-latest
             rust: stable
             features: "--no-default-features"
+          - os: ubuntu-latest
+            rust: beta
+            features: "--all-features"
+          - os: ubuntu-latest
+            rust: nightly
+            features: "--all-features"
+          - os: windows-latest
+            rust: stable
+            features: "--all-features"
+          - os: windows-latest
+            rust: beta
+            features: "--all-features"
+          - os: windows-latest
+            rust: nightly
+            features: "--all-features"
+          - os: macos-latest
+            rust: stable
+            features: "--all-features"
+          - os: macos-latest
+            rust: beta
+            features: "--all-features"
+          - os: macos-latest
+            rust: nightly
+            features: "--all-features"
     steps:
     - uses: actions/checkout@v4
     
     - name: Install Rust
       uses: dtolnay/rust-toolchain@master
       with:
-        toolchain: ${{ matrix.rust }}
+        toolchain: ${{ matrix.rust || 'stable' }}
         components: rustfmt, clippy
     
     - name: Cache cargo registry

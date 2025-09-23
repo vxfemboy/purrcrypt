@@ -44,10 +44,10 @@ impl Keystore {
             fs::set_permissions(&keys_dir, fs::Permissions::from_mode(0o700))?;
 
             // private key directory should be private (700)
-            fs::set_permissions(&keys_dir.join("private"), fs::Permissions::from_mode(0o700))?;
+            fs::set_permissions(keys_dir.join("private"), fs::Permissions::from_mode(0o700))?;
 
             // public key directory can be readable (755)
-            fs::set_permissions(&keys_dir.join("public"), fs::Permissions::from_mode(0o755))?;
+            fs::set_permissions(keys_dir.join("public"), fs::Permissions::from_mode(0o755))?;
         }
 
         Ok(Self {
@@ -178,7 +178,7 @@ impl Keystore {
                         entry.path().display()
                     )));
                 }
-            }        
+            }
         }
         Ok(())
     }
@@ -196,5 +196,4 @@ impl Keystore {
             )))
         }
     }
-
 }
