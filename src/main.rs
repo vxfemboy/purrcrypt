@@ -13,6 +13,9 @@ enum Command {
     GenerateKey {
         name: Option<String>,
     },
+    GenerateHybridKey {
+        name: Option<String>,
+    },
     Encrypt {
         recipient_key: String,
         input_file: String,
@@ -44,6 +47,7 @@ Usage:
 
 Commands:
     genkey [name]                   Generate a new keypair
+    genhybrid [name]                Generate a new hybrid post-quantum keypair
     import-key [--public] <keyfile> Import a key
     encrypt, -e                     Encrypt a message
     decrypt, -d                     Decrypt a message
@@ -118,6 +122,9 @@ fn parse_args_from_vec(args: Vec<String>) -> Result<Command, String> {
             })
         }
         "genkey" => Ok(Command::GenerateKey {
+            name: filtered_args.get(2).cloned(),
+        }),
+        "genhybrid" => Ok(Command::GenerateHybridKey {
             name: filtered_args.get(2).cloned(),
         }),
         "import-key" => {
@@ -269,6 +276,45 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
             println!("✨ Generated keys:");
             println!("  Public key:  {}", pub_path.display());
             println!("  Private key: {}", priv_path.display());
+        }
+        Command::GenerateHybridKey { name } => {
+            println!("🔐 Generating new hybrid post-quantum keypair...");
+            let name = name.unwrap_or_else(|| "default".to_string());
+            
+            // Generate hybrid key pair
+            let hybrid_keypair = crypto::post_quantum::HybridKeyPair::new()?;
+            
+            // Set up file paths
+            let ecdh_pub_path = keystore
+                .keys_dir
+                .join("public")
+                .join(format!("{}.pub", name));
+            let ecdh_sec_path = keystore
+                .keys_dir
+                .join("private")
+                .join(format!("{}.key", name));
+            let kyber_pub_path = keystore
+                .keys_dir
+                .join("public")
+                .join(format!("{}.kyber.pub", name));
+            let kyber_sec_path = keystore
+                .keys_dir
+                .join("private")
+                .join(format!("{}.kyber.key", name));
+
+            // Save hybrid key pair
+            hybrid_keypair.save(
+                ecdh_pub_path.to_str().unwrap(),
+                ecdh_sec_path.to_str().unwrap(),
+                kyber_pub_path.to_str().unwrap(),
+                kyber_sec_path.to_str().unwrap(),
+            )?;
+            
+            println!("✨ Generated hybrid post-quantum keys:");
+            println!("  ECDH Public key:  {}", ecdh_pub_path.display());
+            println!("  ECDH Private key: {}", ecdh_sec_path.display());
+            println!("  Kyber Public key: {}", kyber_pub_path.display());
+            println!("  Kyber Private key: {}", kyber_sec_path.display());
         }
         Command::SetDialect { dialect } => {
             let new_dialect = match dialect.to_lowercase().as_str() {

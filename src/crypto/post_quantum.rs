@@ -80,11 +80,35 @@ impl HybridKeyPair {
             std::path::Path::new(ecdh_sec_path),
         )?;
 
-        // Load Kyber keys from serialized files
+        // Load Kyber keys from serialized files with better error handling
+        let kyber_pub_path_obj = std::path::Path::new(kyber_pub_path);
+        let kyber_sec_path_obj = std::path::Path::new(kyber_sec_path);
+        
+        // Check if Kyber key files exist before trying to read them
+        if !kyber_pub_path_obj.exists() {
+            return Err(PostQuantumError::Io(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("Kyber public key file not found at: {:?}", kyber_pub_path_obj),
+            )));
+        }
+        
+        if !kyber_sec_path_obj.exists() {
+            return Err(PostQuantumError::Io(io::Error::new(
+                io::ErrorKind::NotFound,
+                format!("Kyber secret key file not found at: {:?}", kyber_sec_path_obj),
+            )));
+        }
+        
         let kyber_public_bytes =
-            std::fs::read(kyber_pub_path).map_err(PostQuantumError::Io)?;
+            std::fs::read(kyber_pub_path).map_err(|e| PostQuantumError::Io(io::Error::new(
+                e.kind(),
+                format!("Failed to read Kyber public key from {:?}: {}", kyber_pub_path_obj, e),
+            )))?;
         let kyber_secret_bytes =
-            std::fs::read(kyber_sec_path).map_err(PostQuantumError::Io)?;
+            std::fs::read(kyber_sec_path).map_err(|e| PostQuantumError::Io(io::Error::new(
+                e.kind(),
+                format!("Failed to read Kyber secret key from {:?}: {}", kyber_sec_path_obj, e),
+            )))?;
 
         // Deserialize Kyber keys
         let kyber_public = Kyber512PublicKey::from_bytes(&kyber_public_bytes).map_err(|e| {
