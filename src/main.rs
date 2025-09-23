@@ -280,10 +280,10 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
         Command::GenerateHybridKey { name } => {
             println!("🔐 Generating new hybrid post-quantum keypair...");
             let name = name.unwrap_or_else(|| "default".to_string());
-            
+
             // Generate hybrid key pair
             let hybrid_keypair = crypto::post_quantum::HybridKeyPair::new()?;
-            
+
             // Set up file paths
             let ecdh_pub_path = keystore
                 .keys_dir
@@ -309,7 +309,7 @@ fn run() -> Result<(), Box<dyn std::error::Error>> {
                 kyber_pub_path.to_str().unwrap(),
                 kyber_sec_path.to_str().unwrap(),
             )?;
-            
+
             println!("✨ Generated hybrid post-quantum keys:");
             println!("  ECDH Public key:  {}", ecdh_pub_path.display());
             println!("  ECDH Private key: {}", ecdh_sec_path.display());
