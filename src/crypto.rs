@@ -16,6 +16,11 @@ use std::{
     path::Path,
 };
 use thiserror::Error;
+use crate::cipher::PetDialect;
+
+// New modules for our fluffy upgrades! Nyaa~ >w<
+pub mod post_quantum;
+pub mod efficient_compression;
 
 
 
@@ -130,4 +135,85 @@ pub fn generate_keypair(pub_path: &Path, secret_path: &Path) -> Result<(), KeyEr
 
 pub fn load_keypair(pub_path: &Path, secret_path: &Path) -> Result<KeyPair, KeyError> {
     KeyPair::load_keypair(pub_path, secret_path)
+}
+
+/// New fluffy encryption function using all our adowable upgrades! Nyaa~ >w<
+pub fn encrypt_file_v2(
+    input_filename: &str,
+    output_filename: &str,
+    recipient_ecdh_public: &k256::PublicKey,
+    recipient_kyber_public: &pqcrypto_kyber::kyber512::PublicKey,
+    dialect: PetDialect,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use crate::crypto::efficient_compression::SmartCompressor;
+    use crate::crypto::post_quantum::SecureMessage;
+    use crate::cipher::EfficientPetCipher;
+    
+    // Read input data
+    let input_data = std::fs::read(input_filename)?;
+    debug_hex("Input data", &input_data);
+    
+    // Compress data efficiently
+    let compressor = SmartCompressor::new();
+    let compressed_data = compressor.compress(&input_data)?;
+    debug_hex("Compressed data", &compressed_data);
+    
+    // Encrypt with post-quantum security
+    let secure_message = SecureMessage::encrypt(
+        &compressed_data,
+        recipient_ecdh_public,
+        recipient_kyber_public,
+    )?;
+    debug_hex("Encrypted data", &secure_message.encrypted_data);
+    
+    // Encode with efficient pet sounds
+    let mut output_file = std::fs::File::create(output_filename)?;
+    let cipher = EfficientPetCipher::new(dialect);
+    
+    // Serialize the secure message
+    let message_bytes = secure_message.to_bytes();
+    cipher.encode_data(&message_bytes, &mut output_file)?;
+    
+    Ok(())
+}
+
+/// New fluffy decryption function! *purrs securely*
+pub fn decrypt_file_v2(
+    input_filename: &str,
+    output_filename: &str,
+    recipient_ecdh_secret: &k256::SecretKey,
+    recipient_kyber_secret: &pqcrypto_kyber::kyber512::SecretKey,
+) -> Result<(), Box<dyn std::error::Error>> {
+    use crate::crypto::efficient_compression::SmartCompressor;
+    use crate::crypto::post_quantum::SecureMessage;
+    use crate::cipher::{EfficientPetCipher, PetDialect};
+    
+    // Read and decode pet sounds
+    let input_content = std::fs::read_to_string(input_filename)?;
+    let cipher = EfficientPetCipher::new(PetDialect::Kitty); // Try kitty first
+    let message_bytes = match cipher.decode_data(&input_content) {
+        Ok(data) => data,
+        Err(_) => {
+            // Try puppy dialect if kitty fails
+            let puppy_cipher = EfficientPetCipher::new(PetDialect::Puppy);
+            puppy_cipher.decode_data(&input_content)?
+        }
+    };
+    
+    // Deserialize secure message
+    let secure_message = SecureMessage::from_bytes(&message_bytes)?;
+    
+    // Decrypt with post-quantum security (follows doom principle!)
+    let compressed_data = secure_message.decrypt(recipient_ecdh_secret, recipient_kyber_secret)?;
+    debug_hex("Decrypted data", &compressed_data);
+    
+    // Decompress efficiently
+    let compressor = SmartCompressor::new();
+    let decompressed_data = compressor.decompress(&compressed_data)?;
+    debug_hex("Decompressed data", &decompressed_data);
+    
+    // Write output
+    std::fs::write(output_filename, decompressed_data)?;
+    
+    Ok(())
 }   

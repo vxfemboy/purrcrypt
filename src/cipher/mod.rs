@@ -1,6 +1,9 @@
 // src/cipher/mod.rs
 mod patterns;
+pub mod efficient;
+pub mod steganographic_rp;
 pub use patterns::{CipherPattern, PatternVariation};
+pub use efficient::{EfficientPetCipher, PetDialect, SoundType};
 use std::io::{self, Write};
 
 pub enum CipherMode {
