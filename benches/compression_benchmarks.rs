@@ -89,7 +89,10 @@ fn bench_compression_quality(c: &mut Criterion) {
                 .into_iter()
                 .collect::<Vec<u8>>(),
         ),
-        ("repeated_patterns", [0x41u8, 0x42u8, 0x43u8].repeat(3333)),
+        (
+            "repeated_patterns",
+            [0x41u8, 0x42u8, 0x43u8].repeat(3333),
+        ),
     ];
 
     let compressor = SmartCompressor::new();

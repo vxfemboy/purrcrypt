@@ -81,8 +81,10 @@ impl HybridKeyPair {
         )?;
 
         // Load Kyber keys from serialized files
-        let kyber_public_bytes = std::fs::read(kyber_pub_path).map_err(PostQuantumError::Io)?;
-        let kyber_secret_bytes = std::fs::read(kyber_sec_path).map_err(PostQuantumError::Io)?;
+        let kyber_public_bytes =
+            std::fs::read(kyber_pub_path).map_err(PostQuantumError::Io)?;
+        let kyber_secret_bytes =
+            std::fs::read(kyber_sec_path).map_err(PostQuantumError::Io)?;
 
         // Deserialize Kyber keys
         let kyber_public = Kyber512PublicKey::from_bytes(&kyber_public_bytes).map_err(|e| {
