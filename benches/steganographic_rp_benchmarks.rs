@@ -1,10 +1,10 @@
-use criterion::{criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use purrcrypt::cipher::steganographic_rp::{PetDialect, PetPersonality, SteganographicRPCipher};
 use std::hint::black_box;
-use purrcrypt::cipher::steganographic_rp::{SteganographicRPCipher, PetDialect, PetPersonality};
 
 fn bench_encoding(c: &mut Criterion) {
     let mut group = c.benchmark_group("steganographic_rp_encoding");
-    
+
     let test_data_sizes = [100, 1000, 10000, 100000];
     let personalities = [
         PetPersonality::Chatty,
@@ -14,13 +14,13 @@ fn bench_encoding(c: &mut Criterion) {
         PetPersonality::Curious,
         PetPersonality::Sleepy,
     ];
-    
+
     for size in test_data_sizes {
         let data = vec![0x42u8; size];
-        
+
         for personality in &personalities {
             let cipher = SteganographicRPCipher::new(PetDialect::Kitty, *personality);
-            
+
             group.bench_with_input(
                 BenchmarkId::new("encode", format!("{}_bytes_{:?}", size, personality)),
                 &data,
@@ -34,13 +34,13 @@ fn bench_encoding(c: &mut Criterion) {
             );
         }
     }
-    
+
     group.finish();
 }
 
 fn bench_decoding(c: &mut Criterion) {
     let mut group = c.benchmark_group("steganographic_rp_decoding");
-    
+
     let test_data_sizes = [100, 1000, 10000, 100000];
     let personalities = [
         PetPersonality::Chatty,
@@ -50,36 +50,32 @@ fn bench_decoding(c: &mut Criterion) {
         PetPersonality::Curious,
         PetPersonality::Sleepy,
     ];
-    
+
     for size in test_data_sizes {
         let data = vec![0x42u8; size];
-        
+
         for personality in &personalities {
             let cipher = SteganographicRPCipher::new(PetDialect::Kitty, *personality);
-            
+
             // Pre-encode the data
             let mut encoded = Vec::new();
             cipher.encode_data(&data, &mut encoded).unwrap();
             let encoded_str = String::from_utf8(encoded).unwrap();
-            
+
             group.bench_with_input(
                 BenchmarkId::new("decode", format!("{}_bytes_{:?}", size, personality)),
                 &encoded_str,
-                |b, encoded_str| {
-                    b.iter(|| {
-                        cipher.decode_data(black_box(encoded_str)).unwrap()
-                    })
-                },
+                |b, encoded_str| b.iter(|| cipher.decode_data(black_box(encoded_str)).unwrap()),
             );
         }
     }
-    
+
     group.finish();
 }
 
 fn bench_roundtrip(c: &mut Criterion) {
     let mut group = c.benchmark_group("steganographic_rp_roundtrip");
-    
+
     let test_data_sizes = [100, 1000, 10000, 100000];
     let personalities = [
         PetPersonality::Chatty,
@@ -89,13 +85,13 @@ fn bench_roundtrip(c: &mut Criterion) {
         PetPersonality::Curious,
         PetPersonality::Sleepy,
     ];
-    
+
     for size in test_data_sizes {
         let data = vec![0x42u8; size];
-        
+
         for personality in &personalities {
             let cipher = SteganographicRPCipher::new(PetDialect::Kitty, *personality);
-            
+
             group.bench_with_input(
                 BenchmarkId::new("roundtrip", format!("{}_bytes_{:?}", size, personality)),
                 &data,
@@ -111,23 +107,34 @@ fn bench_roundtrip(c: &mut Criterion) {
             );
         }
     }
-    
+
     group.finish();
 }
 
 fn bench_compression_ratio(c: &mut Criterion) {
     let mut group = c.benchmark_group("steganographic_rp_compression_ratio");
-    
+
     let test_cases = [
         ("repetitive", vec![0x41u8; 1000]),
-        ("alternating", (0..1000).map(|i| if i % 2 == 0 { 0x41 } else { 0x42 }).collect()),
+        (
+            "alternating",
+            (0..1000)
+                .map(|i| if i % 2 == 0 { 0x41 } else { 0x42 })
+                .collect(),
+        ),
         ("random", (0..1000).map(|_| rand::random::<u8>()).collect()),
-        ("text", b"Hello World! This is a test message for compression ratio testing. ".repeat(20).into_iter().collect::<Vec<u8>>()),
+        (
+            "text",
+            b"Hello World! This is a test message for compression ratio testing. "
+                .repeat(20)
+                .into_iter()
+                .collect::<Vec<u8>>(),
+        ),
     ];
-    
+
     for (name, data) in test_cases {
         let cipher = SteganographicRPCipher::new(PetDialect::Kitty, PetPersonality::Chatty);
-        
+
         group.bench_with_input(
             BenchmarkId::new("compression_ratio", name),
             &data,
@@ -142,21 +149,21 @@ fn bench_compression_ratio(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
 fn bench_dialect_comparison(c: &mut Criterion) {
     let mut group = c.benchmark_group("steganographic_rp_dialect_comparison");
-    
+
     let data = vec![0x42u8; 1000];
     let dialects = [PetDialect::Kitty, PetDialect::Puppy];
     let personalities = [PetPersonality::Chatty, PetPersonality::Excited];
-    
+
     for dialect in &dialects {
         for personality in &personalities {
             let cipher = SteganographicRPCipher::new(*dialect, *personality);
-            
+
             group.bench_with_input(
                 BenchmarkId::new("encode", format!("{:?}_{:?}", dialect, personality)),
                 &data,
@@ -170,7 +177,7 @@ fn bench_dialect_comparison(c: &mut Criterion) {
             );
         }
     }
-    
+
     group.finish();
 }
 

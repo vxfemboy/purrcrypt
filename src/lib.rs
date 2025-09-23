@@ -7,7 +7,11 @@ pub mod keys;
 pub mod keystore;
 
 // Re-export our new fluffy features! Nyaa~ >w<
-pub use crypto::post_quantum::{HybridKeyPair, SecureMessage, PostQuantumError};
-pub use crypto::efficient_compression::{SmartCompressor, StreamingCompressor, CompressionError};
-pub use cipher::efficient::{EfficientPetCipher, PetDialect, SoundType, EmotionalContext, FileType};
-pub use cipher::steganographic_rp::{SteganographicRPCipher, PetPersonality, EmotionalState, ActionType};
+pub use cipher::efficient::{
+    EfficientPetCipher, EmotionalContext, FileType, PetDialect, SoundType,
+};
+pub use cipher::steganographic_rp::{
+    ActionType, EmotionalState, PetPersonality, SteganographicRPCipher,
+};
+pub use crypto::efficient_compression::{CompressionError, SmartCompressor, StreamingCompressor};
+pub use crypto::post_quantum::{HybridKeyPair, PostQuantumError, SecureMessage};
