@@ -19,7 +19,7 @@ path = "src/main.rs"
 flate2 = "1.0.35"
 regex = "1.11.1"
 elliptic-curve = "0.13.8"
-rand_core = "0.6.4"
+rand_core = "0.10.0"
 rand = "0.9.0"
 k256 = { version = "0.13.3", features = ["ecdh"] }
 aes-gcm = "0.10.3"
